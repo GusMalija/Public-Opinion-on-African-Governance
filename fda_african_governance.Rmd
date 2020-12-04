@@ -1,0 +1,53 @@
+---
+title: "African Governance"
+author: "Augustine Malija"
+date: "11/19/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(haven)
+library(dplyr)
+library(tidyverse)
+library(rvest) #for scrapping and downloading datasets from the web
+```
+
+
+```{r cars}
+#downloading Afrobarometer data
+download.file("http://afrobarometer.org/sites/default/files/data/round-7/r7_merged_data_34ctry.release.sav", destfile = "data.sav")
+
+#reading the dataset
+afrobarometer <- read_sav("data.sav")
+```
+
+# IIAG Data
+```{r}
+#downloading IIAG data
+download.file("mif.media/2020-iiag-csv", destfile = "data.zip", method = "libcurl")
+
+#unzipping the dataset
+unzip("data.zip")
+#listing files in the unzipped folder by names
+list.files()
+
+#reading scores data
+scores_data <- read_csv("/cloud/project/EN/IIAG/2020 IIAG_Scores.csv") %>% 
+  #selecting variables relevant for COVID
+  select("Country", "Year", "Freedom of Association & Assembly", "Political Pluralism", "Civil Society Space", "Democratic Elections", "Personal Liberties", "Freedom of Expression & Belief", "Media Freedom", "Digital Rights", "Internet Users' Privacy Protection", "Absence of Internet & Social Media Shutdowns", "Unrestricted Access to Internet Content", "Absence of Online Censorship")
+
+
+#reading the dataset
+processed_data <- read_csv("/cloud/project/EN/IIAG/2020 IIAG_Processed Data.csv") %>% 
+  arrange(desc(AbsViolEvNonStateConfACLED))
+
+#reading the codebook
+codebook_iiag <- read_csv("/cloud/project/EN/IIAG/2020 IIAG_Naming Conventions.csv")
+
+conf_inter <- read_csv("/cloud/project/EN/IIAG/2020 IIAG_Confidence Intervals.csv")
+
+ranks_data <- read_csv("/cloud/project/EN/IIAG/2020 IIAG_Ranks.csv")
+
+names(scores_data)
+```
+
