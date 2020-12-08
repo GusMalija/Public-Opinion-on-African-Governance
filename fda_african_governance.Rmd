@@ -32,12 +32,30 @@ unzip("data.zip")
 list.files()
 
 #reading scores data
-scores_data <- read_csv("/cloud/project/EN/IIAG/2020 IIAG_Scores.csv") %>% 
-  #selecting variables relevant for COVID
-  select("Country", "Year", "Freedom of Association & Assembly", "Political Pluralism", "Civil Society Space", "Democratic Elections", "Personal Liberties", "Freedom of Expression & Belief", "Media Freedom", "Digital Rights", "Internet Users' Privacy Protection", "Absence of Internet & Social Media Shutdowns", "Unrestricted Access to Internet Content", "Absence of Online Censorship")
+scores_data <- read_csv("/cloud/project/EN/IIAG/2020 IIAG_Scores.csv")
+
+citizen_participation <- scores_data %>% 
+  select("Country", "Year", "Freedom of Association & Assembly", "Political Pluralism", "Civil Society Space", "Democratic Elections", "Personal Liberties", "Freedom of Expression & Belief", "Media Freedom", "Digital Rights", "Internet Users' Privacy Protection", "Absence of Internet & Social Media Shutdowns", "Unrestricted Access to Internet Content", "Absence of Online Censorship") %>% 
+  #renaming variables
+  select(everything(),
+         free_assoc = "Freedom of Association & Assembly",
+         pol_plu = "Political Pluralism",
+         civil_space ="Civil Society Space",
+         dem_elections = "Democratic Elections",
+         liberties = "Personal Liberties",
+         free_exp = "Freedom of Expression & Belief",
+         media = "Media Freedom",
+         digital_rights = "Digital Rights",
+         privacy_protection = "Internet Users' Privacy Protection",
+         internet_shutdowns = "Absence of Internet & Social Media Shutdowns",
+         internet_content = "Unrestricted Access to Internet Content",
+         censorship = "Absence of Online Censorship")
+
+#changing variables to numeric
+citizen_participation[, 3:ncol(citizen_participation)] <- lapply(citizen_participation[, 3:ncol(citizen_participation)], as.numeric)
 
 
-#reading the dataset
+#reading processed dataset
 processed_data <- read_csv("/cloud/project/EN/IIAG/2020 IIAG_Processed Data.csv") %>% 
   arrange(desc(AbsViolEvNonStateConfACLED))
 
@@ -48,6 +66,94 @@ conf_inter <- read_csv("/cloud/project/EN/IIAG/2020 IIAG_Confidence Intervals.cs
 
 ranks_data <- read_csv("/cloud/project/EN/IIAG/2020 IIAG_Ranks.csv")
 
-names(scores_data)
+names(citizen_participation)
+
+```
+
+## Plotting
+```{r, fig.height= 7, fig.width= 10}
+#year with Absence of social media shutdowns
+shutdowns <- citizen_participation %>% 
+  filter(!is.na(internet_shutdowns))
+
+ggplot(subset(shutdowns, Country %in% c("South Sudan", "South Africa", "Nigeria", "Liberia", "Central African Republic", "Libya")),
+       aes(x = Year,
+           y = internet_shutdowns,
+           linetype = Country,
+           shape = Country))+
+  geom_line(alpha = 0.5) +
+  geom_point(alpha = 0.8,
+             size = 0.8) +
+  theme_light() +
+  scale_shape_discrete(name = "Country")+
+  scale_linetype_discrete( name = "Country")+
+  scale_x_continuous(breaks = c(2010:2019), minor_breaks = F)+
+  labs(title = "The State of Media Shutdowns in Representative African Countries",
+       x = "Year",
+       y = "Absence of Media Shutdowns")
+
+str(citizen_participation)
+
+#"Tanzania",, "Tunisia" "Madagascar" "DR Congo", 
+```
+
+```{r}
+elections <- citizen_participation %>% 
+  filter(!is.na(dem_elections))
+
+ggplot(subset(elections, Country %in% c("Tanzania", "Uganda", "Kenya", "Rwanda", "Burundi", "South Sudan")),
+       aes(x = Year,
+           y = dem_elections,
+           linetype = Country,
+           shape = Country))+
+  geom_line(alpha = 0.5) +
+  geom_point(alpha = 0.8,
+             size = 0.8) +
+  theme_light() +
+  scale_shape_discrete(name = "Country")+
+  scale_linetype_discrete( name = "Country")+
+  scale_x_continuous(breaks = c(2010:2019), minor_breaks = F)+
+  labs(title = "Countrywise Democratic Elections",
+       x = "Year",
+       y = "Elections")
+```
+
+```{r}
+plurism <- citizen_participation %>% 
+  filter(!is.na(pol_plu))
+
+ggplot(subset(plurism, Country %in% c("South Sudan", "South Africa", "Nigeria", "Liberia", "Central African Republic", "Libya")),
+       aes(x = Year,
+           y = pol_plu,
+           linetype = Country,
+           shape = Country))+
+  geom_line(alpha = 0.5) +
+  geom_point(alpha = 0.8,
+             size = 0.8) +
+  theme_light() +
+  scale_shape_discrete(name = "Country")+
+  scale_linetype_discrete( name = "Country")+
+  scale_x_continuous(breaks = c(2010:2019), minor_breaks = F)+
+  labs(title = "Countrywise Democratic Elections",
+       x = "Year",
+       y = "Political Plularism")
+
+```
+# Scatter plot: Correlation btn Economic Opportunity and Citizen Participation
+```{r}
+ggplot(citizen_participation,
+       aes(x = free_exp,
+           y = internet_shutdowns))+
+  geom_point(alpha = 0.4,
+             size = 0.5)+
+  labs(title = "Correlation between Freedom of Expression and Internet Shutdowns",
+       x = "Freedom of Expression",
+       y = "Internet Shutdown")+
+  theme_light()+
+  geom_smooth(method = "lm")
+```
+### Top Ten Countires
+```{r}
+
 ```
 
