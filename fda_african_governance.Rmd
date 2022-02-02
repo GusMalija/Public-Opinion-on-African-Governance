@@ -1,0 +1,456 @@
+---
+title: 'Online Censorship: An Insiduous Trigger for Internet Shutdowns in Africa?'
+author: "Augustine Malija(a.malija@mpp.hertie-school.org) and Kindye Atnafu Adugna(k.adugna@mpp.hertie-school.org)"
+date: "12/22/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+**Authors’ Contribution**
+
+Augustine’s contribution on this blog started by contacting the Mo Ibrahim Foundation to obtain the recent data on time. He also worked on scrapping the web, visualizing the continental average summary and state of internet shutdowns, extracting the relationship between public participation and economic opportunities, creating the interaction and density plots on RStudio as well as on the final report. He also co-wrote the final report and prepared the final presentation.
+
+Kindye’s contribution was in following up with experts to access the latest data, extracting the average summary for continental repression, visualizing the trajectories of the top and least performing countries using density plots and the coefficient plot to see the impact of selected variables on elections. He co-wrote the final report and prepared a script for the final presentation.
+
+
+**Synopsis**
+
+This blog post analyses African Governance Progress in the last decade (2010 – 2019) using the Ibrahim Index on African Governance (IIAG). We analyzed 51 countries and selected indicators. We found out that the score of many of the indicators of participation, rights, and rule of law have declined in the given period. We also showed the impact of COVID-19 on African 
+
+governance where it affects many of the indicators, including elections and freedom of expression, negatively. The blog also tries to explain the main reasons for government repression by bringing specific examples.
+
+
+**Introduction**
+
+For a decade, economic performance in African countries has seen a continual improvement. This has mainly been driven by governments prioritizing investments in economic growth sectors such as infrastructure and ease of market access for agricultural produce. Accounting for other dimensions, what does this narrate about governance in general? On average, opinion from government representatives paints a rosy picture of improvements. But residents’ public opinion tells a different story.
+
+We uncover this flipside to the coin by studying pan-African data on public opinion about African Governance. Our main source of data is the Ibrahim Index on African Governance (IIAG) - an initiative by Mo Ibrahim Foundation (MIF) that surveys African citizens yearly. This time-series data from 2010 to 2019 covers 51 African countries. It comprises 540 observations spread across 237 variables. All variables are treated as continuous variables and measured as a score out of 100 (100 being the best). These variables are categorized into four main dimensions namely; Foundations for Economic Opportunity, Human Development, Security and Rule of Law and Participation, Rights, and Inclusion. The IIAG generates composite scores based on each variable using a methodology built with the Harvard Kennedy School of Governance.
+
+
+```{r setup, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+library(haven) # for reading datasets
+library(dplyr) #for data manipulation
+library(tidyverse) # for data manipulation
+library(rvest) #for scrapping and downloading datasets from the web
+library(lubridate) #for data on dates
+library(scales) #for enhancing colorful plots
+library(readr) #for parsing numbers from scrapped tables from the web
+library(broom) #for converting linear models to data frame
+```
+
+
+**Analysis**
+
+Our main dimensions of interest were Participation, Rights, and Inclusion together with Foundations for Economic Opportunity. We scrapped the web for generated scores data that we combined with population data on African countries from Worldometer to explain various phenomena. One striking finding from the report is that the effect of COVID-19 has steepened the already worsening governance situation for the past years. Our intrigue led us to find out if this is the case and/or if there are additional factors. Corollary, we picked representative variables for our two dimensions of interest; absence of internet shutdowns, freedom of association and assembly, unrestricted access to internet content, inequality mitigation, social-economic opportunity by social groups, just to mention a few.
+
+To plot the performance of select variables, we calculate average scores from countrywise scores in a given year to have one single average score per variable. We then transform data to a longer format for ease plotting of variables across time. 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
+#downloading IIAG data
+download.file("mif.media/2020-iiag-csv", destfile = "data.zip", method = "libcurl")
+
+#unzipping the dataset
+unzip("data.zip")
+#listing files in the unzipped folder by names
+list.files()
+
+#reading scores data
+scores_data <- read_csv("/cloud/project/EN/IIAG/2020 IIAG_Scores.csv")
+
+citizen_participation <- scores_data %>% 
+  select("Country", "Year", "Freedom of Association & Assembly", "Political Pluralism", "Civil Society Space", "Democratic Elections", "Personal Liberties", "Freedom of Expression & Belief", "Media Freedom", "Digital Rights", "Internet Users' Privacy Protection", "Absence of Internet & Social Media Shutdowns", "Unrestricted Access to Internet Content", "Absence of Online Censorship", "Socioeconomic Inequality Mitigation", "Socioeconomic Opportunity by Social Group", "Socioeconomic Opportunity by Urban-Rural Location", "Promotion of Socioeconomic Integration of Youth", "Socioeconomic Opportunity for Women", "Equal Socioeconomic Opportunity", "Absence of Socioeconomic Barriers", "FOUNDATIONS FOR ECONOMIC OPPORTUNITY", "SECURITY & SAFETY", "RULE OF LAW & JUSTICE", "ACCOUNTABILITY & TRANSPARENCY", "ANTI-CORRUPTION", "Internet Security", "PARTICIPATION, RIGHTS & INCLUSION", "HUMAN DEVELOPMENT","OVERALL GOVERNANCE") %>% 
+  
+  #renaming variables
+  select(everything(),
+         free_assoc = "Freedom of Association & Assembly",
+         pol_plu = "Political Pluralism",
+         civil_space ="Civil Society Space",
+         dem_elections = "Democratic Elections",
+         liberties = "Personal Liberties",
+         free_exp = "Freedom of Expression & Belief",
+         media_freedom = "Media Freedom",
+         digital_rights = "Digital Rights",
+         privacy_protection = "Internet Users' Privacy Protection",
+         internet_shutdowns = "Absence of Internet & Social Media Shutdowns",
+         internet_content = "Unrestricted Access to Internet Content",
+         censorship = "Absence of Online Censorship",
+         inequality_mitigation = "Socioeconomic Inequality Mitigation",
+         econopps_social = "Socioeconomic Opportunity by Social Group",
+         rural_urban_opps = "Socioeconomic Opportunity by Urban-Rural Location",
+         youth_integration = "Promotion of Socioeconomic Integration of Youth",
+         women_opportunity = "Socioeconomic Opportunity for Women",
+         equal_opportunity = "Equal Socioeconomic Opportunity",
+         no_barriers = "Absence of Socioeconomic Barriers",
+         economic_opportunity = "FOUNDATIONS FOR ECONOMIC OPPORTUNITY",
+         security = "SECURITY & SAFETY",
+         rule_of_law = "RULE OF LAW & JUSTICE",
+         accountability = "ACCOUNTABILITY & TRANSPARENCY",
+         anticoruption = "ANTI-CORRUPTION",
+         internet_security = "Internet Security",
+         participation_inclusion = "PARTICIPATION, RIGHTS & INCLUSION",
+         human_development = "HUMAN DEVELOPMENT",
+         overall_governance = "OVERALL GOVERNANCE")
+
+#changing variables to numeric
+citizen_participation[, 3:ncol(citizen_participation)] <- lapply(citizen_participation[, 3:ncol(citizen_participation)], as.numeric)
+```
+
+
+```{r, fig.width=8, echo=FALSE, warning=FALSE, message=FALSE}
+continental_repression <- citizen_participation %>%
+  #selecting variables communicative of state repression
+  select(Year, internet_shutdowns, internet_content, dem_elections, censorship, media_freedom, free_exp, civil_space) %>%
+  #observing that scores per country recurr on one year, we calculate the average
+  #calculating continental average scores per each select variable
+  group_by(Year) %>% 
+  summarise(avg_shutdowns = mean(internet_shutdowns, na.rm = T),
+            avg_content = mean(internet_content, na.rm = T),
+            avg_elections = mean(dem_elections, na.rm = T),
+            avg_censorship = mean(censorship, na.rm = T),
+            avg_freemedia = mean(media_freedom, na.rm = T),
+            avg_expression = mean(free_exp, na.rm = T),
+            avg_civspace = mean(civil_space, na.rm = T)) %>%
+  #ungrouping
+  #writing the data in long format
+  ungroup() %>% 
+  pivot_longer(c("avg_shutdowns", "avg_content", "avg_elections", "avg_censorship", "avg_freemedia", "avg_expression", "avg_civspace"), names_to = "variables", values_to = "avg_scores") %>%
+  #converting year to character for full year plotting
+  mutate(Year = as.character(Year))
+
+
+#plotting
+ggplot(continental_repression,
+       #specifying axes and color baseline
+       aes(x = Year, y = avg_scores, group = variables, color = variables)) +
+  #picking a line graph
+  geom_line()+
+  #adding points at every year stop
+  geom_point(alpha = 0.8,
+             size = 0.8)+
+  #making the background of the plot lighter
+  theme_light()+
+  #leaving the shape of lines to be determined by variables
+  scale_shape_discrete(name = "variables")+
+  #leaving lines to be determined by variables
+  scale_linetype_discrete(name = "variables")+
+  #naming the axes
+  labs(title = "Continental State Repression",
+       x = "Year",
+       y = "Continental Average Scores")+
+  #removing axis ticks on numbers
+  theme(axis.ticks = element_blank())+
+#saving as png
+ggsave("Continental State Repression.png", width = 12, dpi = 400)
+```
+
+
+
+The plot depicts the progression of governance deterioration in Participation, Rights, and Inclusion for the past decade. In order of significance, it is striking that there has been a decline in Absence of Online Censorship, Civil Society Space, Mainstream Media Freedom, Freedom of Expression and Belief, and Unrestricted Access to Internet Content. The significant increase in online censorship communicates some form of government repression that controls the likelihood of citizens to dissent. This has insidiously led to a decline in the conduct of democratic elections before the year 2018. Strikingly enough, the conduct of democratic elections declines significantly from the year 2018. Among other reasons, the eruption of the COVID-19 pandemic explains since countries like Ethiopia decided to postpone their elections.
+
+
+
+Triggered by the tumult brought about by delays in conducting democratic elections, citizens have been mobilizing to demand the conduct of such elections. But some governments have been responding by shutting down the internet as one of the platforms citizens use to mobilize. We picked six countries representative of South, East, West, North, and Central Africa to examine this form of repression.
+
+```{r, fig.height=8, fig.width=10, echo=FALSE, warning=FALSE, message=FALSE}
+#year with Absence of social media shutdowns
+shutdowns <- citizen_participation %>% 
+  #omitting NAs
+  filter(!is.na(internet_shutdowns))
+
+#Plotting
+ggplot(subset(shutdowns, Country %in% c("South Sudan", "South Africa", "Nigeria", "Liberia", "Central African Republic", "Libya")), #subsetting countries needed
+       #specifying axes and color based on countries
+       aes(x = Year, y = internet_shutdowns, linetype = Country, shape = Country, color = Country))+
+  #picking line graph
+  geom_line(alpha = 0.5) +
+  #adding points at every year step
+  geom_point(alpha = 0.8,
+             size = 0.8) +
+  #making for a lighter background
+  theme_light() +
+  #distincting shapes by country
+  scale_shape_discrete(name = "Country")+
+  #distincting lines by country
+  scale_linetype_discrete( name = "Country")+
+  #making sure every year is plotted
+  scale_x_continuous(breaks = c(2010:2019), minor_breaks = F)+
+  #specifying labs
+  labs(title = "The State of Internet Shutdowns in Representative African Countries",
+       x = "Year",
+       y = "Absence of Media Shutdowns")+
+  #removing ticks on numbers
+  theme(axis.ticks = element_blank(),
+        #removing draft lines on the background of the plot
+        panel.grid = element_blank())+
+#saving as png
+ggsave("Internet Shutdowns.png", width = 12, height = 10, dpi = 400)
+```
+
+
+
+As seen from the plot. Not until the year 2018 did citizens face the shutting down of the internet from governments. Central African Republic, Liberia, and South Africa seem to face this problem from the select countries. Internet shutdowns in Central Africa Republic have become common after the 2018 church and mosque attacks in a small city called Bangui, which led to continuous protest. Liberia had its presidential elections at the end of 2017 where it had limited internet access until the new president (George Weah) was sworn in. Due to South African president Jacob Zouma’s resignation in mid-February 2018, there were internet shutdowns triggered by the fear of instability and protests in major cities like Johannesburg and Cape Town.
+
+
+
+Curious about telling the relationship between economic performance and citizen participation. We use a scatter plot to visualize Foundations for Economic Opportunity against Participation, Rights, and Inclusion.
+   
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+citizen_participation %>% 
+  #omitting missing values for economic opportunity and participation
+  filter(!is.na(economic_opportunity)) %>% 
+  filter(!is.na(participation_inclusion)) %>%
+  #specifying x and y axis
+  ggplot(aes(x = economic_opportunity,
+             y = participation_inclusion)) +
+  #picking a scatter plot
+  geom_point(alpha = 0.4,
+             size = 0.5)+
+  #specifying x and y axis
+  labs(title = "Relationship between Economic Opportunity and Citizen Participation",
+       x = "Foundations for Economic Opportunity",
+       y = "Participation, Rights and Inclusion")+
+  #putting a light background
+  theme_light()+
+  #adding a straight line for the geoms
+  geom_smooth(method = "lm")+
+  #saving as png
+  ggsave("Economic Opportunity vs Citizen Participation.png", width = 12, height = 7, dpi = 400)
+```
+
+
+
+As seen from the scatter plot, countries that perform better economically seem to also perform better in participation, rights, and inclusion.
+
+
+
+Considering all four dimensions, we plot nine best performing countries. We calculate an average of the four dimensions, arrange them in a descending order, generate ranks, single out the nine best-performing countries and plot them in a vertical bar chart.
+
+
+```{r, fig.width = 10, echo=FALSE, warning=FALSE, message=FALSE}
+scores_rank <- citizen_participation %>%
+  #grouping by country
+  group_by(Country) %>%
+  #calculating an overal average out of the four categories
+  summarise(avg_overall = mean(c(economic_opportunity, rule_of_law, participation_inclusion, human_development), na.rm = T)) %>% 
+  #arranging them in a descending order
+  arrange(desc(avg_overall)) 
+
+scores_rank <- scores_rank %>%
+  #adding a rank variable
+  mutate(rank = 1:nrow(scores_rank))%>%
+  #picking top nine countries
+  slice(1:9) 
+
+
+#Plotting
+ggplot(scores_rank, 
+       aes(x = factor(rank), y = avg_overall)) +
+  #making colors are painted based on rankings
+  geom_col(position = position_dodge())+
+  #setting a clear background
+  theme_minimal()+
+  #omitting the draft lines behind the plot
+  theme(panel.grid = element_blank())+
+  #specifying axis names
+  labs(title = "Top Nine Countries on Overal Average Governance Score",
+       x = "Ranking",
+       y = "Overall Average of Goverbance Score")+
+  #attaching text to bars, adjusting its size and color
+  geom_text(aes(label = Country, vjust = -0.5), color = "black", size = 5)+
+  #saving as png
+  ggsave("Top Performing.png", width = 12, dpi = 400)
+```
+
+
+
+Mauritius and Cabo Verde top the list followed by the rest. As it stands, the top nine countries have been better in all dimensions for the past years.
+
+
+
+Surprisingly, the two least performing countries (Somalia and Eritrea) have seen an improvement in performance based on all indicators for the past decade. Even though their governance scores are very low, they are better evolving compared to those of the two top-performing countries. To show this, we select the two top-performing and two least performing countries based on the overall governance score. We then put them into two categories, Top Performing and Least Performing to be able to show this trajectory through density plots.
+
+```{r, fig.width = 10, echo=FALSE, warning=FALSE, message=FALSE}
+opposing_trajectories <- citizen_participation %>% 
+  #selecting variables of interest
+  select(Country, Year, overall_governance) %>% 
+  #selecting two top performing and two least performing countries
+  filter(Country %in% c("Mauritius", "Cabo Verde", "Eritrea", "Somalia")) %>%
+  #categorizing the countries to two categories
+  mutate(performance = ifelse(Country %in% c("Mauritius","Cabo Verde"), "Top Perfoming", "Least Performing"))
+
+#plotting
+ggplot(opposing_trajectories,
+       aes(x = overall_governance))+
+  #specifying for a density plot
+  geom_line(stat = "density")+
+  #filling color by performance
+  geom_density(aes(fill = performance), alpha = 0.8)+
+  labs(title = "Opposing Trajectories in Overall Governance",
+       x = "Overal Governance Score",
+       y = "Density")+
+  theme_bw()+
+  #specifying axis for the matrix
+  facet_grid(performance ~ Year, scales = "free_y")+
+  #making the background lighter
+  theme(panel.grid = element_blank(),
+        #removing ticks on numbers
+        axis.ticks = element_blank())+
+  #saving as png
+  ggsave("Opposing Trajecories.png", width = 12, dpi = 400)
+```
+
+
+
+
+As seen from the density plots. The average improvement in governance scores for Least performing countries has been significant compared to top-performing ones that have been on a concerning path of deterioration since 2015. Representing top-performing countries, Mauritius' deterioration is due to a weakening social protection and a deteriorating environment for human rights. On the flipside, Somalia's improvement in governance score is explained by its improvement in infrastructure and increased gender equality.
+
+
+
+In light of the new trend of government repression through internet shutdowns, we predict this trend in association with a population. No causal strings attached, internet shutdowns act as an independent variable, freedom of association and assembly as the main independent variable portraying citizens' dissent and population as the predictor variable to citizens' dissent. We pick population as the predictor because the more populous the country is, the higher is the likelihood of citizens to gather and dissent through civic society space. In light of the COVID-19 pandemic, some countries postponed the holding of elections. This triggered citizens' dissent that led to the government's repression through internet shutdowns, among other things.
+
+We scraped data on population by country from Worldometer and combined it with IIAG scores data for the year 2019 to predict how shutdowns vary with a population. We interact with the population with freedom of association and assembly to predict the extent of internet shutdowns. Using an expand grid function, we then create a data frame that holds the absence of internet shutdowns constant at its first and third quartile while allowing the population to vary in millions. We then predict the extent of shutdowns using a predict function that combines the data frame we have created with our interaction model.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#creating a separate dataset
+interactions <- citizen_participation %>%
+  #selecting variables of interest
+  select(Country, Year, internet_shutdowns, free_assoc, dem_elections) %>%
+  #omitting NAs from the resultant dataframe
+  na.omit() %>% 
+  #filtering only 2019
+  filter(Year == "2019")
+
+#obtaining population dataset
+#downloading a html behind the URL
+population_data <- read_html("https://www.worldometers.info/population/countries-in-africa-by-population/")
+
+
+#parsing the html url, trimming and filling missings with NAs
+population_table <- html_table(population_data, header = TRUE, fill = TRUE, trim = TRUE)
+#selecting my table of interest
+popn_by_country <- population_table[[1]]
+
+#writing it as a data frame
+popn_country <- data.frame(popn_by_country, stringsAsFactors = F) %>%
+  #selecting desired columns
+  select("Country..or.dependency.", "Population..2020.") %>% 
+  #renaming columns
+  select(Country = "Country..or.dependency.", population = "Population..2020.")
+
+#changing population to numeric
+popn_country$population <- parse_number(popn_country$population)
+
+#joining the two datasets
+interactions <- interactions %>% 
+  left_join(popn_country, by = "Country") %>% 
+  na.omit()
+```
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
+#running a regression
+state_repression <- lm(internet_shutdowns~free_assoc*population, data = interactions)
+
+range(interactions$population)
+summary(interactions$free_assoc)
+quantile(interactions$free_assoc, 0.25)
+
+new_dataframe <- data.frame(expand.grid(population=seq(min(interactions$population), max(interactions$population), 1000000),
+                                 free_assoc=c(quantile(interactions$free_assoc, 0.25),
+                                              quantile(interactions$free_assoc, 0.75))))
+  
+  
+predicted <- predict(state_repression, new_dataframe, se = T)
+df_predicted <- cbind(new_dataframe, predicted)
+```
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#specifying plotting colors for the confidence intervals
+plotcols <-c("cornflowerblue","goldenrod")
+
+#plotting the interactions
+ggplot(df_predicted,
+       aes(x=population,
+           y=fit,
+           color=factor(free_assoc)))+
+  geom_line(aes())+
+  #specifying the confidence intervals
+  geom_ribbon(aes(ymin=fit-1.96*se.fit, ymax=fit+1.96*se.fit, fill=factor(free_assoc)),
+              alpha=0.2,
+              color=NA)+
+  #specifying lables for dissent at points it is held constant
+  scale_fill_manual(labels=c("First quartile Population",
+                             "Third Quartile Population"),
+                    name="",
+                    values = plotcols)+
+  #Naming x and y axis
+  labs(title = "Interactions Between Dissent and Population",
+       x="Population (in millions)",
+       y="Absence of Internet Shutdowns (fitted)")+
+  theme_light()+
+  #positioning legends
+  theme(legend.position = "top",
+        panel.grid.minor = element_blank())+
+  #deploying the scales package
+  scale_x_continuous(labels = label_number(scale=1/1e6))+
+  #saving as png
+  ggsave("Interactions.png", width = 12, dpi = 400)
+```
+
+
+
+
+As we can see from the plot, the absence of social media and internet shutdowns decreases as the population increases. In other words, citizens are more likely to dissent in populous countries and thus are subject to state repression through internet shutdowns. This is in tandem with countries such as Nigeria, Ethiopia, and Tanzania topping the list as the most populous countries in the 
+continent. Although Tanzania conducted its democratic elections, there were internet shutdowns for about two weeks during the election time until results were out. The main motive for this was to discourage demonstrations from citizens who claimed that the elections were not free and fair. Equally likely, Ethiopia's postponement of democratic elections led to some parts of the country demanding elections. This led to the government's repression through shutting down the internet for a couple of weeks among other things. The same is true in Nigeria’s #EndSARS protest. The government shut the internet to control the continuous movement against Nigerian Special Anti-Robbery Squad (SARS) police forces’ brutality. The slogan started as a Twitter campaign but spread to streets. Hence, the government’s response was shutting down some social media platforms to limit communication among protestors.
+
+
+
+We selected political pluralism, freedom of expression, foundations for economic opportunity, civil society space, and censorship as independent variables to explain the likelihood of conducting democratic elections.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#linear model
+coeff_plot <- lm(dem_elections ~ economic_opportunity + censorship + free_exp + pol_plu + civil_space, data = citizen_participation)
+
+#converting to data frame
+coeff_plot <- tidy(coeff_plot)
+
+#plotting
+coeff_plot %>% 
+  #filtering out the intercept
+  filter(term != "(Intercept)") %>% 
+  ggplot(aes(x = term, y = estimate))+
+  #adding a line for the null effect after dropping the intercept
+  geom_hline(yintercept = 0, color = "purple")+
+  #indicating the points for our values
+  geom_point()+
+  #adding confidence intervals
+  geom_linerange(aes(ymin = estimate - 1.96*std.error, ymax = estimate + 1.96*std.error))+
+  geom_linerange(aes(ymin = estimate - 1.65*std.error, ymax = estimate + 1.65*std.error), size = 1)+
+  #naming my axes
+  labs(title = "Coefficient Plot - Estimation of Conducting Democratic Elections",
+       x ="Variables",
+       y = "OLS Coefficient with 90% and 95% Confidence Intervals")+
+  #flipping the coordinates
+  coord_flip()+
+  #making the background lighter and ready for presentation
+  theme_light()+
+  #saving as png
+  ggsave("Coefficient Plot.png", width = 12, dpi = 400)
+```
+
+
+
+From our output, all except online censorship have a positive impact. Keeping other things constant, a 1-point increase in political pluralism increases the chance of holding democratic elections by 0.16 points. Countries such as Ghana and South Africa are good examples of how their political pluralism led to a successful democratic election in the last 2-3 years. On the other hand, countries such as Eritrea and Rwanda, where the government suppresses and detains opposition parties, have had no free and fair elections in the last 10 years.  
+
+A one-point increase in civil society space increases the chance of holding a democratic election by 0.43. Many African countries have strict laws towards civil societies. The most popular one, for example, is the Ethiopian 70:30 regulation. It requires civil society organizations to collect 70% of their funds from local sources, which is very difficult in countries where the average income of the country is below $235/month. 
+Strong foundations for economic opportunities in democratic elections plays a big role. As many economic opportunities are created in urban areas (non-agrarian places) - it is also a proxy variable for cities. Cities with better economies are more likely to conduct democratic elections compared to cities with low economic opportunities. Unlike many Western countries, economic opportunities come with access to information; being independent of government charities (they are given only if people support the government), and other factors.
+
+Freedom of expression has a positive relationship with democratic elections. A one-point increase leads to a 0.1 point increase in conducting democratic elections. All the explanatory variables are significant at a 95% confidence interval. 
+The negative relationship Online censorship has with elections is due to it’s insidious effect that has been prevailing throughout the decade. Slowly restricting access to select internet content pushes for state inneficiencies like postponement of democratic elections.
+
+
+
+**Conclusion**
+
+Although internet shutdowns have gained popularity as a present day form of government repression, it is one of the ripple effects of online censorship.  Our closer look found that this root for state repression has been present since the beginning of the past decade - and has been increasing significantly particularly from the year 2015. As a festering governance wound, it has led to internet shutdowns, declines in freedom of expression, media freedom and associated indicators for participation, rights and inclusion together with foundations for economic opportunity.  This calls for engaging governance - ones that are willing to listen to opposing ideas and forge a way forward.
